@@ -8,6 +8,14 @@ import cv2
 
 current_frame = 1
 illegally_v_container = {}
+s_t = 7
+f_i_t = 1
+confidence = 0.60
+ipv = 0
+s_t_i = " "
+f_i_t_i = " "
+confidence_i = " "
+fps = 15
 
 def get_iou(bb1, bb2):
     
@@ -44,7 +52,7 @@ def get_iou(bb1, bb2):
 
 
 def VehicleDetector(image):
-	global current_frame
+	global current_frame, ipv
 	# load our serialized model from disk
 		
 	# load the input image and construct an input blob for the image
@@ -73,7 +81,7 @@ def VehicleDetector(image):
 		idx = int(detections[0, 0, i, 1])
 		# filter out weak detections by ensuring the `confidence` is
 		# greater than the minimum confidence
-		if  confidence_m >= display.confidence and CLASSES[idx] == "car":
+		if  confidence_m >= confidence and CLASSES[idx] == "car":
 			flag = True
 			# extract the index of the class label from the `detections`,
 			# then compute the (x, y)-coordinates of the bounding box for
@@ -95,11 +103,13 @@ def VehicleDetector(image):
 						break
 			if flag:
 				illegally_v_container[(startX, startY, endX, endY)] = [current_frame,current_frame,True]	
+	ipv = 0
 	for x in illegally_v_container.keys():
 		illegally_v_container[x][2] = False
-		if illegally_v_container[x][0] + display.f_i_t < current_frame:
+		if illegally_v_container[x][0] + f_i_t < current_frame:
 			del illegally_v_container[x]
-		elif current_frame - illegally_v_container[x][1] >= display.s_t:
+		elif current_frame - illegally_v_container[x][1] >= s_t:
+			ipv += 1
 			y = x[1] - 15 if x[1] - 15 > 15 else x[1] + 15
 			cv2.putText(image, "Illegally Parked Vehicle Detected", (x[0], y),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 2)
@@ -160,9 +170,9 @@ class ControlPanel(wx.Frame):
 		self.src_open = wx.Button(self.status_panel, 701,'Choose Video')
 		self.input_txt =  wx.StaticText(self.status_panel, 8, 'Select a video file : ')
 		self.secure_time_label = wx.StaticText(self.status_panel, 9, 'Secure Time (in seconds) : ')
-		self.secure_time = wx.TextCtrl(self.status_panel, 10,value="7")
+		self.secure_time = wx.TextCtrl(self.status_panel, 10,value="7",style=wx.TE_PROCESS_ENTER)
 		self.failure_ignore_time_label = wx.StaticText(self.status_panel, 11, 'Failure Ignore Time (in seconds) : ')
-		self.failure_ignore_time = wx.TextCtrl(self.status_panel, 12,value="1")
+		self.failure_ignore_time = wx.TextCtrl(self.status_panel, 12,value="1",style=wx.TE_PROCESS_ENTER)
 		self.strict_factor_label = wx.StaticText(self.status_panel, 13, 'Strict Factor : ')
 		self.strict_factor = wx.ComboBox(self.status_panel, 14, choices=[str(x)+"%" for x in xrange(10,100,10)],style=wx.CB_READONLY,value = "60%")
 		self.alarm_cb_label = wx.StaticText(self.status_panel, 15, 'Activarte Alarm on detection : ')
@@ -188,18 +198,41 @@ class ControlPanel(wx.Frame):
 		self.status_sizer.Add(self.start_btn , (7, 0),  flag=wx.LEFT | wx.TOP | wx.BOTTOM, border = 15)
 		self.status_panel.SetSizerAndFit(self.status_sizer)
 		
+		#parent video Panel
+		
+		self.parent_video_panel = wx.Panel(self.middle_panel, 201)
+		self.parent_video_sizer = wx.GridBagSizer(5,5)
+		self.s_t_indicator = wx.StaticText(self.parent_video_panel, -1, "Secure Time : "+str(s_t)+"s")
+		self.f_i_t_indicator = wx.StaticText(self.parent_video_panel, -1, "Failure Ignore Time : "+str(f_i_t)+"s")
+		self.confidence_indicator = wx.StaticText(self.parent_video_panel, -1, "Confidence : "+str(int(confidence*100))+"%")
+		self.ipv_count = wx.StaticText(self.parent_video_panel, -1, "Illegally Parked Vehicle Count : "+str(ipv))
+		
+		
 		#video panel
 		
-		self.video_panel = wx.Panel(self.middle_panel, 201, style=wx.BORDER_SUNKEN)
+		self.video_panel = wx.Panel(self.parent_video_panel, 201, style=wx.BORDER_SUNKEN)
 		self.video_sizer = wx.BoxSizer()
 		self.Bmp = wx.StaticBitmap(self.video_panel, 19,scaled_image(path="G:/Projects/IPVD/cod.jpg", width=700,height=450),(0,0))
 		self.video_sizer.Add(self.Bmp,-1, wx.EXPAND) 
 		self.video_panel.SetSizerAndFit(self.video_sizer)
 	
+		#Adding content to parent video_panel
+		
+		self.parent_video_sizer.Add(self.ipv_count, (0,0), flag = wx.EXPAND | wx.ALL, border = 5)
+		self.parent_video_sizer.Add(self.s_t_indicator, (0,3), flag = wx.EXPAND | wx.ALL, border = 5)
+		self.parent_video_sizer.Add(self.f_i_t_indicator, (0,6), flag = wx.EXPAND | wx.ALL, border = 5)
+		self.parent_video_sizer.Add(self.confidence_indicator, (0,9), flag = wx.EXPAND | wx.ALL, border = 5)
+		self.parent_video_sizer.Add(self.video_panel, (1,0),(1,10), flag = wx.EXPAND | wx.ALL, border = 5)
+		
+		self.parent_video_sizer.AddGrowableCol(9)
+			
+		self.parent_video_panel.SetSizerAndFit(self.parent_video_sizer)
+	
+	
 		#Adding video panel and status panel to middle panel
 		
 		self.middle_sizer.Add(self.status_panel, 1,flag= wx.EXPAND | wx.TOP, border=40)
-		self.middle_sizer.Add(self.video_panel, 1,flag= wx.EXPAND | wx.LEFT, border=10)
+		self.middle_sizer.Add(self.parent_video_panel, 1,flag= wx.EXPAND | wx.LEFT, border=10)
 		self.middle_panel.SetSizer(self.middle_sizer)
 		
 		#Adding header panel and middle panel to self.main_panel
@@ -217,11 +250,42 @@ class ControlPanel(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.ChooseVideo, id=701)
 		self.Bind(wx.EVT_BUTTON, self.Integrate, id = 171)
 		self.Bind(wx.EVT_CLOSE, self.OnClose)	
+		self.Bind(wx.EVT_TEXT, self.OnUpdate)
+		self.Bind(wx.EVT_COMBOBOX, self.OnUpdate)
 		
 		self.Center()
 		self.Show(True)
 		self.Maximize(True)
 		self.SetMinSize(wx.Size(1200,720))
+	
+	def OnUpdate(self, event):
+		global s_t_i, f_i_t_i, confidence_i,s_t, f_i_t, confidence
+		
+		try:
+			temp_s_t_i = int(self.secure_time.GetValue())
+		except:
+			temp_s_t_i = 7
+		
+		try:
+			temp_f_i_t_i = int(self.failure_ignore_time.GetValue())
+		except:
+			temp_f_i_t_i = 1
+		
+		if temp_s_t_i < 7:
+			temp_s_t_i = 7
+		if temp_f_i_t_i < 1:
+			temp_f_i_t_i = 1
+		elif temp_s_t_i-temp_f_i_t_i < 6:
+			temp_f_i_t_i = temp_s_t_i - 6
+		
+		
+		confidence_i = self.strict_factor.GetValue()
+		s_t = float(temp_s_t_i)*fps
+		f_i_t = int(temp_f_i_t_i)*fps
+		confidence = int(self.strict_factor.GetValue()[0:2])/float(100)
+		s_t_i = str(temp_s_t_i)+"s"
+		f_i_t_i =str(temp_f_i_t_i)+"s"
+		event.Skip()
 	
 	def SetSource(self, event):
 		if self.video_radio.GetValue():
@@ -272,7 +336,7 @@ class ControlPanel(wx.Frame):
 			
 	def Integrate(self,event):
 		try:
-			global current_frame, illegally_v_container
+			global fps, current_frame, s_t_i, f_i_t_i, confidence_i, illegally_v_container, s_t, f_i_t, confidence
 
 			current_frame = 1
 			illegally_v_container = {}
@@ -290,14 +354,35 @@ class ControlPanel(wx.Frame):
 				self.fps = self.capv.get(cv2.cv.CV_CAP_PROP_FPS)
 			else:
 				self.fps = self.capv.get(cv2.CAP_PROP_FPS)
+			fps = self.fps
+			try:
+				temp_s_t_i = int(self.secure_time.GetValue())
+			except:
+				temp_s_t_i = 7
+		
+			try:
+				temp_f_i_t_i = int(self.failure_ignore_time.GetValue())
+			except:
+				temp_f_i_t_i = 1
 			
-			self.s_t = int(self.secure_time.GetValue())*self.fps
-			self.f_i_t = int(self.failure_ignore_time.GetValue())*self.fps
-			self.confidence = int(self.strict_factor.GetValue()[0:2])/float(100)
+			if temp_s_t_i < 7:
+				temp_s_t_i = 7
+			if temp_f_i_t_i < 1:
+				temp_f_i_t_i = 1
+			elif temp_s_t_i-temp_f_i_t_i < 6:
+				temp_f_i_t_i = temp_s_t_i - 6
+		
+			confidence_i = self.strict_factor.GetValue()
+			s_t = float(temp_s_t_i)*self.fps
+			f_i_t = int(temp_f_i_t_i)*self.fps
+			confidence = int(self.strict_factor.GetValue()[0:2])/float(100)
+			s_t_i = str(temp_s_t_i)+"s"
+			f_i_t_i =str(temp_f_i_t_i)+"s"
 			self.Bmp.Destroy()
 			
 		except:
 			print "Error in integration"
+			
 		
 		try:
 			self.video_panel.Unbind(wx.EVT_PAINT)
@@ -326,7 +411,7 @@ class ControlPanel(wx.Frame):
 		
 		
 	def run_vehicle_detector(self, event):
-		global current_frame
+		global current_frame, s_t_i, f_i_t_i, confidence_i
 		ret, frame = self.capv.read()
 		if ret == True:
 			current_frame += 1;
@@ -334,21 +419,28 @@ class ControlPanel(wx.Frame):
 			#print "Current Frame : ",current_frame
 			frame = cv2.resize(frame, (650, 460))			
 			outframe = VehicleDetector(image = frame)
-			
+			self.ipv_count.SetLabel("Illegally Parked Vehicle Count : "+str(ipv))
+			self.s_t_indicator.SetLabel("Secure Time : "+s_t_i)
+			self.f_i_t_indicator.SetLabel("Failure Ignore Time : "+f_i_t_i)
+			self.confidence_indicator.SetLabel("Strict Factor : "+confidence_i)
 			#cv2.imshow("",display.outframe)
 			#cv2.waitKey(0)
-			
 			outframe = cv2.cvtColor(outframe, cv2.COLOR_BGR2RGB)
 					
 			self.buildBmp.CopyFromBuffer(outframe)
 			
 			self.video_panel.Refresh()
+		else:
+			print "finish"
+			
+			
 		event.Skip()
 	
 	def OnClose(self, event):
 		self.video_panel.Unbind(wx.EVT_PAINT)
 		self.video_panel.Unbind(wx.EVT_TIMER)
-		self.Destroy();
+		self.Destroy()
+		
 """"""""""""""""""""""""""""""""""""""""""""""""""" Argument Parser """""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 if __name__ == "__main__":
