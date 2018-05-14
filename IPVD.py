@@ -16,6 +16,7 @@ s_t_i = " "
 f_i_t_i = " "
 confidence_i = " "
 fps = 15
+path = ""
 
 def get_iou(bb1, bb2):
     
@@ -147,9 +148,9 @@ class ControlPanel(wx.Frame):
 		
 		self.header_panel = wx.Panel(self.main_panel,4)
 		self.header_sizer = wx.GridBagSizer(5,5)
-		self.logo = wx.StaticBitmap(self.header_panel, 18,scaled_image(path="G:/Projects/IPVD/a.png", width=70,height=50))
-		self.header_title = wx.StaticBitmap(self.header_panel, 19,scaled_image(path="G:/Projects/IPVD/t.png", width=325,height=50))
-		self.header_sizer.Add(self.header_title, (0,0), flag= wx.LEFT | wx.TOP | wx.RIGHT, border=30)
+		self.logo = wx.StaticBitmap(self.header_panel, 18,scaled_image(path="G:/Projects/IPVD/data/a.png", width=70,height=50))
+		self.header_title = wx.StaticBitmap(self.header_panel, 19,scaled_image(path="G:/Projects/IPVD/data/logo.png", width=350,height=60))
+		self.header_sizer.Add(self.header_title, (0,0), flag= wx.TOP , border=30)
 		self.header_sizer.Add(self.logo, (0,1), flag= wx.EXPAND |wx.TOP | wx.RIGHT, border=25)
 		self.header_sizer.AddGrowableCol(0)
 		self.header_panel.SetSizer(self.header_sizer)
@@ -212,7 +213,7 @@ class ControlPanel(wx.Frame):
 		
 		self.video_panel = wx.Panel(self.parent_video_panel, 201, style=wx.BORDER_SUNKEN)
 		self.video_sizer = wx.BoxSizer()
-		self.Bmp = wx.StaticBitmap(self.video_panel, 19,scaled_image(path="G:/Projects/IPVD/cod.jpg", width=700,height=450),(0,0))
+		self.Bmp = wx.StaticBitmap(self.video_panel, 19,scaled_image(path="G:/Projects/IPVD/data/cod.jpg", width=700,height=450),(0,0))
 		self.video_sizer.Add(self.Bmp,-1, wx.EXPAND) 
 		self.video_panel.SetSizerAndFit(self.video_sizer)
 	
@@ -253,6 +254,9 @@ class ControlPanel(wx.Frame):
 		self.Bind(wx.EVT_TEXT, self.OnUpdate)
 		self.Bind(wx.EVT_COMBOBOX, self.OnUpdate)
 		
+		icon = wx.Icon()
+		icon.CopyFromBitmap(wx.Bitmap("G:/Projects/IPVD/data/a.png", wx.BITMAP_TYPE_ANY))
+		self.SetIcon(icon)
 		self.Center()
 		self.Show(True)
 		self.Maximize(True)
@@ -275,8 +279,8 @@ class ControlPanel(wx.Frame):
 			temp_s_t_i = 7
 		if temp_f_i_t_i < 1:
 			temp_f_i_t_i = 1
-		elif temp_s_t_i-temp_f_i_t_i < 6:
-			temp_f_i_t_i = temp_s_t_i - 6
+		elif temp_s_t_i-temp_f_i_t_i < 4:
+			temp_f_i_t_i = temp_s_t_i - 4
 		
 		
 		confidence_i = self.strict_factor.GetValue()
@@ -317,6 +321,7 @@ class ControlPanel(wx.Frame):
 			self.status_panel.Fit()
 	
 	def ChooseVideo(self, event):
+		global path
 		wcd = 'MP4 files (*.mp4)|*.mp4|AVI files (*.avi)|*.avi'
 		dir = os.getcwd()
 		open_dlg = wx.FileDialog(self, message='Choose a file', defaultDir=dir, defaultFile='',wildcard=wcd, style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
@@ -336,18 +341,23 @@ class ControlPanel(wx.Frame):
 			
 	def Integrate(self,event):
 		try:
-			global fps, current_frame, s_t_i, f_i_t_i, confidence_i, illegally_v_container, s_t, f_i_t, confidence
+			global path, fps, current_frame, s_t_i, f_i_t_i, confidence_i, illegally_v_container, s_t, f_i_t, confidence
 
 			current_frame = 1
 			illegally_v_container = {}
-
+			
 			self.camera = self.ip_radio.GetValue()
 			if self.camera:
 				self.path = self.src_input.GetValue()
 			else:
-				self.path = self.src_input.GetLabel()
-			self.capv = cv2.VideoCapture("http://"+self.path+":8080/video?.mp4") if self.camera else cv2.VideoCapture(self.path)
-		
+				self.path = path
+				
+			print self.path
+			try:
+				self.capv = cv2.VideoCapture("http://"+self.path+":8080/video?.mp4") if self.camera else cv2.VideoCapture(self.path)
+			except:
+				print "Error in Opening the video stream"
+				
 			(major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
 		
 			if int(major_ver)  < 3:
@@ -369,8 +379,8 @@ class ControlPanel(wx.Frame):
 				temp_s_t_i = 7
 			if temp_f_i_t_i < 1:
 				temp_f_i_t_i = 1
-			elif temp_s_t_i-temp_f_i_t_i < 6:
-				temp_f_i_t_i = temp_s_t_i - 6
+			elif temp_s_t_i-temp_f_i_t_i < 4:
+				temp_f_i_t_i = temp_s_t_i - 4
 		
 			confidence_i = self.strict_factor.GetValue()
 			s_t = float(temp_s_t_i)*self.fps
@@ -390,17 +400,33 @@ class ControlPanel(wx.Frame):
 		except:
 			print "Error in unbinding"
 		
-		ret, frame = self.capv.read()
+		try:
+			ret, frame = self.capv.read()
+		except:
+			print "Error in reading stream"
+		
 		height, width = 650, 460
-		frame = VehicleDetector(image = frame)
-		frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-		self.buildBmp = wx.Bitmap.FromBuffer(650, 460, frame)
-		self.video_panel.Refresh()
-		self.timer = wx.Timer(self.video_panel)
-		self.timer.Start(1000.0/self.fps)
-
 		self.video_panel.Bind(wx.EVT_PAINT, self.onPaint)
-		self.video_panel.Bind(wx.EVT_TIMER, self.run_vehicle_detector)
+		
+		if self.start_btn.GetLabel() == "Stop":
+			self.start_btn.SetLabel("Start")
+			self.Bmp = wx.StaticBitmap(self.video_panel, 19,scaled_image(path="G:/Projects/IPVD/data/cod.jpg", width=700,height=450),(0,0))
+			self.video_sizer.Add(self.Bmp,-1, wx.EXPAND) 
+			self.video_sizer.Layout()
+			self.video_panel.Refresh()
+			return
+		else:
+			self.start_btn.SetLabel("Stop")
+		
+			frame = VehicleDetector(image = frame)
+			frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+			self.buildBmp = wx.Bitmap.FromBuffer(650, 460, frame)
+			self.video_panel.Refresh()
+			self.timer = wx.Timer(self.video_panel)
+			self.timer.Start(1000.0/self.fps)
+
+			self.video_panel.Bind(wx.EVT_PAINT, self.onPaint)
+			self.video_panel.Bind(wx.EVT_TIMER, self.run_vehicle_detector)
 		
         
 	def onPaint(self, evt):
@@ -441,7 +467,7 @@ class ControlPanel(wx.Frame):
 		self.video_panel.Unbind(wx.EVT_TIMER)
 		self.Destroy()
 		
-""""""""""""""""""""""""""""""""""""""""""""""""""" Argument Parser """""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""""""""""""""""""""""""""""""""""""""""""""""""""" Main Function """""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 if __name__ == "__main__":
 	#Global vehicle container
