@@ -341,7 +341,7 @@ class ControlPanel(wx.Frame):
 			
 	def Integrate(self,event):
 		try:
-			global path, fps, current_frame, s_t_i, f_i_t_i, confidence_i, illegally_v_container, s_t, f_i_t, confidence
+			global path, ipv, fps, current_frame, s_t_i, f_i_t_i, confidence_i, illegally_v_container, s_t, f_i_t, confidence
 
 			current_frame = 1
 			illegally_v_container = {}
@@ -409,6 +409,8 @@ class ControlPanel(wx.Frame):
 		self.video_panel.Bind(wx.EVT_PAINT, self.onPaint)
 		
 		if self.start_btn.GetLabel() == "Stop":
+			ipv = 0
+			self.ipv_count.SetLabel("Illegally Parked Vehicle Count : "+str(ipv))
 			self.start_btn.SetLabel("Start")
 			self.Bmp = wx.StaticBitmap(self.video_panel, 19,scaled_image(path="G:/Projects/IPVD/data/cod.jpg", width=700,height=450),(0,0))
 			self.video_sizer.Add(self.Bmp,-1, wx.EXPAND) 
